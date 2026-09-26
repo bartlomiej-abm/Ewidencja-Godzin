@@ -1,0 +1,1143 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ABM Sauny · Ewidencja godzin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#f6f1ea; --surface:#fffdfa; --ink:#2b211b; --muted:#7c6b5e; --line:#e7ddd1;
+  --brown:#6b4a33; --brown-2:#8b6547; --brown-soft:#efe4d8;
+  --sat:#f3eadf; --sun:#eedfd2; --hol:#f2d9cf; --hol-ink:#a33b2b;
+  --ok:#3d7550; --ok-soft:#e3efe5; --warn:#a86a14; --warn-soft:#f7ebd6; --danger:#a33b2b; --danger-soft:#f6e1dc;
+  --radius:12px; --shadow:0 1px 2px rgba(43,33,27,.06),0 4px 16px rgba(43,33,27,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 Jost,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;margin:0;letter-spacing:.2px}
+h1{font-size:30px} h2{font-size:24px} h3{font-size:19px}
+button,input,select,textarea{font:inherit;color:inherit}
+.muted{color:var(--muted)} .small{font-size:13px} .right{text-align:right} .nowrap{white-space:nowrap}
+.hidden{display:none!important}
+
+/* layout */
+header.top{background:var(--brown);color:#fbf6f0;padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20}
+header.top .logo{font-family:"Cormorant Garamond",serif;font-size:22px;font-weight:600;letter-spacing:.5px}
+header.top .logo span{opacity:.7;font-weight:500}
+header.top .who{margin-left:auto;font-size:13px;text-align:right;line-height:1.2}
+header.top .who b{display:block;font-weight:500;font-size:14px}
+header.top button{background:transparent;border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px}
+nav.tabs{background:var(--surface);border-bottom:1px solid var(--line);display:flex;gap:2px;overflow-x:auto;padding:0 8px;position:sticky;top:56px;z-index:19;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{background:none;border:0;padding:13px 12px 11px;border-bottom:2px solid transparent;cursor:pointer;color:var(--muted);white-space:nowrap;font-weight:500}
+nav.tabs button.on{color:var(--brown);border-bottom-color:var(--brown)}
+main{max-width:1100px;margin:0 auto;padding:18px 16px 60px}
+.demo-bar{background:var(--warn-soft);color:#6d4a10;font-size:13px;padding:6px 16px;text-align:center}
+
+/* cards */
+.grid{display:grid;gap:12px}
+.cards{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.stat .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+.stat .val{font-size:26px;font-weight:500;margin-top:2px;font-variant-numeric:tabular-nums}
+.stat .sub{font-size:13px;color:var(--muted)}
+.stat.accent{background:var(--brown);color:#fff;border-color:var(--brown)}
+.stat.accent .lbl,.stat.accent .sub{color:rgba(255,255,255,.75)}
+.stat.neg .val{color:var(--danger)}
+.section{margin-top:22px}
+.section-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.section-h h2,.section-h h3{margin-right:auto}
+
+/* controls */
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:8px 14px;cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:6px;min-height:38px}
+.btn:hover{border-color:var(--brown-2)}
+.btn.pri{background:var(--brown);border-color:var(--brown);color:#fff}
+.btn.pri:hover{background:#5a3d29}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.danger{color:var(--danger)}
+.btn.sm{padding:4px 10px;min-height:30px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.monthnav{display:flex;align-items:center;gap:6px}
+.monthnav b{min-width:150px;text-align:center;font-family:"Cormorant Garamond",serif;font-size:21px;text-transform:capitalize}
+label.f{display:block;margin-bottom:12px}
+label.f>span{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],select,textarea{width:100%;background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 11px;min-height:40px}
+input:focus,select:focus,textarea:focus{outline:2px solid rgba(107,74,51,.25);border-color:var(--brown-2)}
+textarea{min-height:64px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.picker{display:flex;align-items:center;gap:8px}
+.picker select{width:auto;min-width:200px}
+
+/* table */
+.tbl-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:500;background:#fbf7f1}
+tr:last-child td{border-bottom:0}
+tr.click{cursor:pointer} tr.click:hover td{background:#fbf6ef}
+tfoot td{font-weight:600;background:#fbf7f1}
+
+/* badges */
+.bdg{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:99px;font-weight:500;white-space:nowrap}
+.bdg.ok{background:var(--ok-soft);color:var(--ok)}
+.bdg.draft{background:var(--warn-soft);color:var(--warn)}
+.bdg.edit{background:var(--danger-soft);color:var(--danger)}
+.bdg.mute{background:var(--brown-soft);color:var(--brown)}
+
+/* calendar */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal .hd{font-size:12px;color:var(--muted);text-align:center;padding:4px 0;text-transform:uppercase;letter-spacing:.5px}
+.cal .d{background:var(--surface);border:1px solid var(--line);border-radius:9px;min-height:66px;padding:5px 6px;cursor:pointer;position:relative;display:flex;flex-direction:column;gap:1px;text-align:left}
+.cal .d:hover{border-color:var(--brown-2)}
+.cal .d.empty{background:transparent;border:0;cursor:default}
+.cal .d.sat{background:var(--sat)} .cal .d.sun{background:var(--sun)} .cal .d.holiday{background:var(--hol)}
+.cal .d.holiday .n,.cal .d.sun .n{color:var(--hol-ink)}
+.cal .d.today{outline:2px solid var(--brown);outline-offset:-1px}
+.cal .d.future{opacity:.8}
+.cal .n{font-weight:600;font-size:14px}
+.cal .hn{font-size:10px;line-height:1.1;color:var(--hol-ink)}
+.cal .h{margin-top:auto;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.cal .h.ok{color:var(--ok)} .cal .h.draft{color:var(--warn)}
+.cal .dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--warn)}
+.cal .d.miss{box-shadow:inset 0 0 0 1px var(--danger)}
+.cal .d.pick{background:#e6efe6;border-color:var(--ok)}
+.cal .d.pick .h{color:var(--ok)}
+.cal .d.locked{cursor:default}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px;border:1px solid var(--line)}
+
+/* entries list */
+.entry{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;padding:11px 14px;border-bottom:1px solid var(--line);align-items:start}
+.entry:last-child{border-bottom:0}
+.entry .date{font-weight:600;min-width:62px}
+.entry .date small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.entry .meta{font-size:13px;color:var(--muted)}
+.entry .amt{text-align:right;font-variant-numeric:tabular-nums}
+.entry .amt b{display:block;font-size:16px}
+.entry .acts{grid-column:2/4;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+.empty-st{padding:24px;text-align:center;color:var(--muted)}
+.change{padding:10px 14px;border-bottom:1px solid var(--line);font-size:14px}
+.change:last-child{border-bottom:0}
+.change .diff{margin-top:3px}
+.change del{color:var(--danger)} .change ins{color:var(--ok);text-decoration:none;font-weight:500}
+.notice{background:var(--warn-soft);border:1px solid #edd6ad;color:#6d4a10;border-radius:var(--radius);padding:10px 14px;font-size:14px}
+.notice.red{background:var(--danger-soft);border-color:#ebc3ba;color:#7c2a1d}
+
+/* forecast */
+.fc-res{display:grid;grid-template-columns:1fr auto;gap:6px 16px;font-variant-numeric:tabular-nums}
+.fc-res .tot{font-size:22px;font-weight:600;border-top:1px solid var(--line);padding-top:8px;margin-top:4px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+
+/* modal & toast */
+dialog{border:0;border-radius:16px;padding:0;width:min(520px,calc(100vw - 24px));background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog::backdrop{background:rgba(43,33,27,.45)}
+dialog .mh{padding:16px 18px 6px;display:flex;align-items:center}
+dialog .mh h3{margin-right:auto}
+dialog .mb{padding:8px 18px 4px;max-height:70vh;overflow:auto}
+dialog .mf{padding:12px 18px 16px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.x{background:none;border:0;font-size:22px;cursor:pointer;color:var(--muted);line-height:1}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:99;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+#toast.on{opacity:1} #toast.err{background:var(--danger)}
+
+/* login */
+.login{min-height:100vh;display:grid;place-items:center;padding:16px}
+.login .box{width:min(380px,100%);background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:28px 24px;box-shadow:var(--shadow)}
+.login h1{text-align:center;color:var(--brown)}
+.login p.sub{text-align:center;margin:2px 0 20px;color:var(--muted)}
+
+@media (max-width:640px){
+  h1{font-size:26px}
+  .stat .val{font-size:22px}
+  .cal{gap:3px}
+  .cal .d{min-height:54px;padding:4px}
+  .cal .hn{display:none}
+  .cal .h{font-size:12px}
+  .picker{flex-wrap:wrap} .picker select{min-width:0;flex:1}
+  .row2{grid-template-columns:1fr}
+  th,td{padding:8px 9px}
+  .hide-m{display:none}
+  header.top .logo span{display:none}
+  header.top .who{font-size:12px}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<dialog id="dlg"></dialog>
+<div id="toast"></div>
+
+<script>
+/* =====================================================================
+   KONFIGURACJA — wklej dane ze swojego projektu Supabase
+   (Project Settings → API). Puste = tryb DEMO (dane tylko w przeglądarce).
+   ===================================================================== */
+const CONFIG = {
+  SUPABASE_URL: 'https://uuxnxvzwhvjlcxegtozk.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1eG54dnp3aHZqbGN4ZWd0b3prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMzcxNzgsImV4cCI6MjA5MDYxMzE3OH0.qu4nd6Rv9rZxnSdJd1scnBLEMs01eFJrX8gzb6WfDdc'
+};
+
+/* ---------------- narzędzia ---------------- */
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const todayStr = () => ymd(new Date());
+const parseD = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (s, n) => { const d = parseD(s); d.setDate(d.getDate() + n); return ymd(d); };
+const monthOf = s => s.slice(0, 7);
+const addMonths = (mk, n) => { const [y, m] = mk.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+const monthDays = mk => { const [y, m] = mk.split('-').map(Number); const n = new Date(y, m, 0).getDate(); return Array.from({ length: n }, (_, i) => `${mk}-${pad(i + 1)}`); };
+const dow = s => (parseD(s).getDay() + 6) % 7; // 0 = poniedziałek
+const MONTHS = ['styczeń','luty','marzec','kwiecień','maj','czerwiec','lipiec','sierpień','wrzesień','październik','listopad','grudzień'];
+const MONTHS_GEN = ['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','września','października','listopada','grudnia'];
+const DOW = ['pn','wt','śr','cz','pt','sb','nd'];
+const DOW_L = ['poniedziałek','wtorek','środa','czwartek','piątek','sobota','niedziela'];
+const monthLabel = mk => `${MONTHS[+mk.slice(5) - 1]} ${mk.slice(0, 4)}`;
+const dShort = s => `${+s.slice(8)}.${s.slice(5, 7)}`;
+const dLong = s => `${+s.slice(8)} ${MONTHS_GEN[+s.slice(5, 7) - 1]} ${s.slice(0, 4)}`;
+const fmtPLN = v => (Math.round((+v || 0) * 100) / 100).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' zł';
+const fmtH = v => (+v || 0).toLocaleString('pl-PL', { maximumFractionDigits: 2 }) + ' h';
+const num = v => { const x = parseFloat(String(v).replace(',', '.')); return isNaN(x) ? 0 : x; };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sum = (arr, f) => arr.reduce((a, x) => a + (+f(x) || 0), 0);
+
+/* ---------------- święta w Polsce ---------------- */
+function easter(y) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4,
+    f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30,
+    i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451),
+    mo = Math.floor((h + l - 7 * m + 114) / 31), da = ((h + l - 7 * m + 114) % 31) + 1;
+  return ymd(new Date(y, mo - 1, da));
+}
+const _hol = {};
+function holidays(y) {
+  if (_hol[y]) return _hol[y];
+  const e = easter(y);
+  const h = {
+    [`${y}-01-01`]: 'Nowy Rok', [`${y}-01-06`]: 'Trzech Króli', [e]: 'Wielkanoc', [addDays(e, 1)]: 'Poniedziałek Wielkanocny',
+    [`${y}-05-01`]: 'Święto Pracy', [`${y}-05-03`]: 'Święto 3 Maja', [addDays(e, 49)]: 'Zielone Świątki', [addDays(e, 60)]: 'Boże Ciało',
+    [`${y}-08-15`]: 'Wniebowzięcie NMP', [`${y}-11-01`]: 'Wszystkich Świętych', [`${y}-11-11`]: 'Święto Niepodległości',
+    [`${y}-12-25`]: 'Boże Narodzenie', [`${y}-12-26`]: 'Drugi dzień świąt'
+  };
+  if (y >= 2025) h[`${y}-12-24`] = 'Wigilia';
+  return (_hol[y] = h);
+}
+const holidayName = s => holidays(+s.slice(0, 4))[s];
+const dayType = s => holidayName(s) ? 'holiday' : dow(s) === 5 ? 'sat' : dow(s) === 6 ? 'sun' : 'work';
+function monthInfo(mk) {
+  const days = monthDays(mk);
+  const t = days.map(dayType);
+  return {
+    work: t.filter(x => x === 'work').length,
+    sat: t.filter(x => x === 'sat').length,
+    sun: t.filter(x => x === 'sun').length,
+    hol: days.filter(d => holidayName(d)).map(d => ({ d, name: holidayName(d) }))
+  };
+}
+
+/* =====================================================================
+   WARSTWA DANYCH — Supabase
+   ===================================================================== */
+function supaApi() {
+  const sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+  const ok = ({ data, error }) => { if (error) throw new Error(plError(error.message)); return data; };
+  const must = rows => { if (!rows || !rows.length) throw new Error('Brak uprawnień albo wpis jest już zablokowany'); return rows; };
+  async function all(table, order) {
+    let out = [], from = 0; const step = 1000;
+    for (;;) {
+      const d = ok(await sb.from(table).select('*').order(order, { ascending: true }).range(from, from + step - 1));
+      out = out.concat(d); if (d.length < step) break; from += step;
+    }
+    return out;
+  }
+  async function myProfile() {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return null;
+    const p = ok(await sb.from('ew_profiles').select('*').eq('id', user.id).maybeSingle());
+    if (!p) throw new Error('Konto nie ma profilu w ewidencji. Uruchom schema.sql.');
+    if (!p.active) { await sb.auth.signOut(); throw new Error('Konto jest nieaktywne'); }
+    return p;
+  }
+  return {
+    demo: false,
+    async init() { const { data: { session } } = await sb.auth.getSession(); return session ? myProfile() : null; },
+    async login(email, password) { ok(await sb.auth.signInWithPassword({ email: email.trim(), password })); return myProfile(); },
+    async logout() { await sb.auth.signOut(); },
+    async changePassword(pw) { ok(await sb.auth.updateUser({ password: pw })); },
+    async loadAll() {
+      const [profiles, projects, entries, changes, advances, payouts] = await Promise.all([
+        all('ew_profiles', 'full_name'), all('ew_projects', 'name'), all('ew_entries', 'work_date'),
+        all('ew_entry_changes', 'changed_at'), all('ew_advances', 'adv_date'), all('ew_payouts', 'period')
+      ]);
+      return { profiles, projects, entries, changes, advances, payouts };
+    },
+    async updateProfile(id, patch) { must(ok(await sb.from('ew_profiles').update(patch).eq('id', id).select())); },
+    async createEmployee({ email, password, full_name, hourly_rate }) {
+      const tmp = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, storageKey: 'ew-tmp' } });
+      const r = await tmp.auth.signUp({ email: email.trim(), password, options: { data: { full_name } } });
+      if (r.error) throw new Error(plError(r.error.message));
+      if (!r.data.user || (r.data.user.identities && r.data.user.identities.length === 0)) throw new Error('Konto z tym e-mailem już istnieje');
+      await new Promise(res => setTimeout(res, 400));
+      must(ok(await sb.from('ew_profiles').update({ full_name, hourly_rate }).eq('id', r.data.user.id).select()));
+    },
+    async saveProject(p) {
+      const { id, ...rest } = p;
+      if (id) must(ok(await sb.from('ew_projects').update(rest).eq('id', id).select()));
+      else ok(await sb.from('ew_projects').insert(rest).select());
+    },
+    async saveEntry(e) {
+      const { id, ...rest } = e;
+      if (id) must(ok(await sb.from('ew_entries').update(rest).eq('id', id).select()));
+      else must(ok(await sb.from('ew_entries').insert(rest).select()));
+    },
+    async submitEntries(ids) { must(ok(await sb.from('ew_entries').update({ status: 'zatwierdzony' }).in('id', ids).eq('status', 'roboczy').select())); },
+    async deleteEntry(id, reason) {
+      if (reason) ok(await sb.from('ew_entries').update({ admin_reason: reason }).eq('id', id).select());
+      must(ok(await sb.from('ew_entries').delete().eq('id', id).select()));
+    },
+    async recalcRate(userId, from, rate, reason) {
+      ok(await sb.from('ew_entries').update({ rate, admin_reason: reason }).eq('user_id', userId).gte('work_date', from).select());
+    },
+    async addAdvance(a) { ok(await sb.from('ew_advances').insert(a).select()); },
+    async deleteAdvance(id) { must(ok(await sb.from('ew_advances').delete().eq('id', id).select())); },
+    async addPayout(p) { ok(await sb.from('ew_payouts').insert(p).select()); },
+    async deletePayout(id) { must(ok(await sb.from('ew_payouts').delete().eq('id', id).select())); }
+  };
+}
+function plError(m) {
+  if (/Invalid login/i.test(m)) return 'Nieprawidłowy e-mail lub hasło';
+  if (/Email not confirmed/i.test(m)) return 'E-mail niepotwierdzony (wyłącz „Confirm email” w Supabase)';
+  if (/Password should be/i.test(m)) return 'Hasło za krótkie (min. 6 znaków)';
+  if (/row-level security/i.test(m)) return 'Brak uprawnień do tej operacji';
+  return m;
+}
+
+/* =====================================================================
+   WARSTWA DANYCH — DEMO (localStorage, te same reguły co w bazie)
+   ===================================================================== */
+function demoApi() {
+  const KEY = 'abm_ew_demo_v1';
+  let db = null;
+  try { db = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+  if (!db) db = seedDemo();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} };
+  save();
+  let me = null;
+  const isA = () => me && me.role === 'admin';
+  const deny = () => new Error('Brak uprawnień do tej operacji');
+  const nid = () => (db.seq = (db.seq || 1000) + 1);
+  const now = () => new Date().toISOString();
+  const vis = u => isA() || u === me.id;
+  const clone = x => JSON.parse(JSON.stringify(x));
+  const rateOf = u => (db.profiles.find(p => p.id === u) || {}).hourly_rate || 0;
+  const strip = r => { const { admin_reason, updated_at, edited_by_admin, ...x } = r; return JSON.stringify(x); };
+  const log = (action, o, n, reason) => db.changes.push({ id: nid(), entry_id: (n || o).id, user_id: (n || o).user_id, changed_by: me.id, action, old_data: o, new_data: n, reason: reason || null, changed_at: now() });
+
+  function saveEntry(e) {
+    if (e.id) {
+      const cur = db.entries.find(x => x.id === e.id);
+      if (!cur) throw new Error('Wpis nie istnieje');
+      if (!isA() && (cur.user_id !== me.id || cur.status !== 'roboczy')) throw new Error('Wpis jest zatwierdzony, edytować może tylko administrator');
+      const old = clone(cur), n = { ...cur, ...e };
+      if (!isA()) { n.user_id = me.id; n.rate = rateOf(me.id); n.admin_reason = null; n.edited_by_admin = old.edited_by_admin; }
+      else { if (n.rate == null) n.rate = rateOf(n.user_id); if (old.status === 'zatwierdzony') n.edited_by_admin = true; }
+      if (n.status === 'zatwierdzony' && old.status !== 'zatwierdzony') n.submitted_at = now();
+      n.updated_at = now();
+      Object.assign(cur, n);
+      if (isA() && old.status === 'zatwierdzony' && strip(old) !== strip(n)) log('edycja', old, clone(n), n.admin_reason);
+    } else {
+      const n = { id: nid(), user_id: me.id, note: '', project_id: null, status: 'roboczy', edited_by_admin: false, admin_reason: null, created_at: now(), ...e };
+      if (!isA()) { n.user_id = me.id; n.rate = rateOf(me.id); n.admin_reason = null; n.edited_by_admin = false; }
+      else if (n.rate == null) n.rate = rateOf(n.user_id);
+      if (n.status === 'zatwierdzony') n.submitted_at = now();
+      n.updated_at = now();
+      db.entries.push(n);
+      if (isA() && n.user_id !== me.id) log('dodanie', null, clone(n), n.admin_reason);
+    }
+  }
+  return {
+    demo: true,
+    async init() { try { const id = sessionStorage.getItem(KEY + '_me'); me = db.profiles.find(p => p.id === id) || null; } catch (e) {} return me ? clone(me) : null; },
+    async login(email) {
+      me = db.profiles.find(p => p.email.toLowerCase() === String(email).trim().toLowerCase());
+      if (!me) throw new Error('Nieprawidłowy e-mail (w demo użyj przycisków poniżej)');
+      if (!me.active) { me = null; throw new Error('Konto jest nieaktywne'); }
+      try { sessionStorage.setItem(KEY + '_me', me.id); } catch (e) {}
+      return clone(me);
+    },
+    async logout() { me = null; try { sessionStorage.removeItem(KEY + '_me'); } catch (e) {} },
+    async changePassword() {},
+    async loadAll() {
+      return clone({
+        profiles: db.profiles.filter(p => vis(p.id)), projects: db.projects,
+        entries: db.entries.filter(x => vis(x.user_id)), changes: db.changes.filter(x => vis(x.user_id)),
+        advances: db.advances.filter(x => vis(x.user_id)), payouts: db.payouts.filter(x => vis(x.user_id))
+      });
+    },
+    async updateProfile(id, patch) { if (!isA()) throw deny(); Object.assign(db.profiles.find(p => p.id === id), patch); save(); },
+    async createEmployee({ email, full_name, hourly_rate }) {
+      if (!isA()) throw deny();
+      if (db.profiles.some(p => p.email.toLowerCase() === email.toLowerCase())) throw new Error('Konto z tym e-mailem już istnieje');
+      db.profiles.push({ id: 'u' + nid(), email, full_name, role: 'pracownik', hourly_rate, active: true, created_at: now() }); save();
+    },
+    async saveProject(p) {
+      if (!isA()) throw deny();
+      if (p.id) Object.assign(db.projects.find(x => x.id === p.id), p);
+      else db.projects.push({ id: nid(), active: true, created_at: now(), ...p });
+      save();
+    },
+    async saveEntry(e) { saveEntry(e); save(); },
+    async submitEntries(ids) { ids.forEach(id => { const c = db.entries.find(x => x.id === id); if (c && c.status === 'roboczy') saveEntry({ id, status: 'zatwierdzony' }); }); save(); },
+    async deleteEntry(id, reason) {
+      const cur = db.entries.find(x => x.id === id);
+      if (!cur) return;
+      if (!isA() && (cur.user_id !== me.id || cur.status !== 'roboczy')) throw deny();
+      db.entries = db.entries.filter(x => x.id !== id);
+      if (isA() && cur.status === 'zatwierdzony') log('usunięcie', clone(cur), null, reason);
+      save();
+    },
+    async recalcRate(userId, from, rate, reason) {
+      if (!isA()) throw deny();
+      db.entries.filter(x => x.user_id === userId && x.work_date >= from).forEach(x => saveEntry({ id: x.id, rate, admin_reason: reason }));
+      save();
+    },
+    async addAdvance(a) { if (!isA()) throw deny(); db.advances.push({ id: nid(), created_by: me.id, created_at: now(), ...a }); save(); },
+    async deleteAdvance(id) { if (!isA()) throw deny(); db.advances = db.advances.filter(x => x.id !== id); save(); },
+    async addPayout(p) { if (!isA()) throw deny(); db.payouts.push({ id: nid(), created_at: now(), ...p }); save(); },
+    async deletePayout(id) { if (!isA()) throw deny(); db.payouts = db.payouts.filter(x => x.id !== id); save(); },
+    reset() { try { localStorage.removeItem(KEY); sessionStorage.removeItem(KEY + '_me'); } catch (e) {} location.reload(); }
+  };
+}
+
+function seedDemo() {
+  const db = {
+    seq: 500,
+    profiles: [
+      { id: 'u1', email: 'bartek@demo.pl', full_name: 'Bartek', role: 'admin', hourly_rate: 0, active: true },
+      { id: 'u2', email: 'jan@demo.pl', full_name: 'Jan Kowalski', role: 'pracownik', hourly_rate: 35, active: true },
+      { id: 'u3', email: 'piotr@demo.pl', full_name: 'Piotr Nowak', role: 'pracownik', hourly_rate: 32, active: true },
+      { id: 'u4', email: 'marek@demo.pl', full_name: 'Marek Wiśniewski', role: 'pracownik', hourly_rate: 30, active: true }
+    ],
+    projects: [
+      { id: 1, name: 'Sauna zewnętrzna 230×230', client: 'Kowalczyk, Kraków', active: true },
+      { id: 2, name: 'Sauna wewnętrzna', client: 'FHB', active: true },
+      { id: 3, name: 'Warsztat, produkcja', client: '', active: true },
+      { id: 4, name: 'Montaż Stary Sącz', client: 'Zieleniec', active: true }
+    ],
+    entries: [], changes: [], advances: [], payouts: []
+  };
+  let s = 11; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+  const pick = a => a[Math.floor(rnd() * a.length)];
+  const today = todayStr(), cur = monthOf(today), prev = addMonths(cur, -1);
+  const draftFrom = addDays(today, -3), gapFrom = addDays(today, -2);
+  const notes = ['Montaż boazerii', 'Ławy', 'Dach, blacha na rąbek', 'Elektryka i piec', 'Transport', 'Szlifowanie', 'Elewacja', 'Docinanie desek'];
+  for (const u of db.profiles.filter(p => p.role !== 'admin')) {
+    for (const mk of [prev, cur]) for (const d of monthDays(mk)) {
+      if (d >= today) continue;
+      const t = dayType(d);
+      if (t === 'holiday' || t === 'sun') continue;
+      if (t === 'sat' && rnd() > 0.3) continue;
+      if (rnd() < 0.04) continue;
+      if (u.id === 'u4' && d >= gapFrom) continue;
+      db.entries.push({
+        id: ++db.seq, user_id: u.id, work_date: d, hours: t === 'sat' ? pick([4, 5, 6]) : pick([8, 8, 8.5, 9, 7.5, 10]),
+        project_id: 1 + Math.floor(rnd() * 4), note: pick(notes), rate: u.hourly_rate,
+        status: (d >= draftFrom && u.id !== 'u3') ? 'roboczy' : 'zatwierdzony', edited_by_admin: false, admin_reason: null
+      });
+    }
+  }
+  const adv = (u, d, a, n) => db.advances.push({ id: ++db.seq, user_id: u, adv_date: d, amount: a, note: n });
+  adv('u2', prev + '-15', 400, 'Gotówka'); adv('u2', cur + '-10', 500, 'Przelew'); adv('u3', cur + '-05', 300, 'Gotówka');
+  for (const u of ['u2', 'u3', 'u4']) {
+    const earned = sum(db.entries.filter(e => e.user_id === u && monthOf(e.work_date) === prev), e => e.hours * e.rate);
+    const a = sum(db.advances.filter(x => x.user_id === u && monthOf(x.adv_date) === prev), x => x.amount);
+    db.payouts.push({ id: ++db.seq, user_id: u, period: prev, amount: Math.round((earned - a) * 100) / 100, paid_date: cur + '-10', note: 'Przelew' });
+  }
+  const e = db.entries.find(x => x.user_id === 'u2' && monthOf(x.work_date) === cur && x.status === 'zatwierdzony' && x.hours >= 9);
+  if (e) {
+    const old = { ...e }; e.hours = e.hours - 1; e.edited_by_admin = true; e.admin_reason = 'Zjazd z montażu godzinę wcześniej, potwierdzone z ekipą';
+    db.changes.push({ id: ++db.seq, entry_id: e.id, user_id: 'u2', changed_by: 'u1', action: 'edycja', old_data: old, new_data: { ...e }, reason: e.admin_reason, changed_at: new Date().toISOString() });
+  }
+  return db;
+}
+
+/* =====================================================================
+   STAN I OBLICZENIA
+   ===================================================================== */
+const api = CONFIG.SUPABASE_URL ? supaApi() : demoApi();
+const S = { me: null, view: 'pulpit', month: monthOf(todayStr()), selUser: null, data: null, fc: { key: null, on: new Set(), hW: 8, hS: 8, rate: null } };
+const isAdmin = () => S.me && S.me.role === 'admin';
+const workers = () => S.data.profiles.filter(p => p.role !== 'admin');
+const TU = () => isAdmin() ? S.selUser : S.me.id;
+const prof = id => S.data.profiles.find(p => p.id === id) || { full_name: '?', hourly_rate: 0 };
+const projName = id => { const p = S.data.projects.find(x => x.id === id); return p ? p.name + (p.client ? ' · ' + p.client : '') : 'bez zlecenia'; };
+const amt = e => (+e.hours) * (+e.rate || 0);
+const inRange = (d, from, to) => (!from || d >= from) && (!to || d <= to);
+
+function stats(u, from, to) {
+  const es = S.data.entries.filter(e => e.user_id === u && inRange(e.work_date, from, to));
+  const sub = es.filter(e => e.status === 'zatwierdzony'), dr = es.filter(e => e.status !== 'zatwierdzony');
+  return { h: sum(sub, e => e.hours), earned: sum(sub, amt), hDraft: sum(dr, e => e.hours), draft: sum(dr, amt), nDraft: dr.length };
+}
+const advSum = (u, from, to) => sum(S.data.advances.filter(a => a.user_id === u && inRange(a.adv_date, from, to)), a => a.amount);
+const paySum = (u, maxPeriod, onlyPeriod) => sum(S.data.payouts.filter(p => p.user_id === u && (onlyPeriod ? p.period === onlyPeriod : (!maxPeriod || p.period <= maxPeriod))), p => p.amount);
+const balanceThrough = (u, mk) => stats(u, null, mk + '-31').earned - advSum(u, null, mk + '-31') - paySum(u, mk);
+const balanceAll = u => stats(u).earned - advSum(u) - paySum(u);
+function missingDays(u) {
+  const t = todayStr(), p = prof(u), out = [];
+  const start = p.created_at ? p.created_at.slice(0, 10) : '0000';
+  for (let i = 14; i >= 1; i--) {
+    const d = addDays(t, -i);
+    if (d < start || dayType(d) !== 'work') continue;
+    if (!S.data.entries.some(e => e.user_id === u && e.work_date === d)) out.push(d);
+  }
+  return out;
+}
+
+/* =====================================================================
+   UI — szkielet
+   ===================================================================== */
+const $app = document.getElementById('app');
+const dlg = document.getElementById('dlg');
+function toast(msg, err) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.className = 'on' + (err ? ' err' : '');
+  clearTimeout(t._h); t._h = setTimeout(() => t.className = '', err ? 4500 : 2500);
+}
+async function run(fn, okMsg) {
+  try { await fn(); if (okMsg) toast(okMsg); await reload(); } catch (e) { console.error(e); toast(e.message || String(e), true); }
+}
+async function reload() { S.data = await api.loadAll(); const mine = S.data.profiles.find(p => p.id === S.me.id); if (mine) S.me = mine; if (isAdmin()) { const ws = workers(); if (!ws.some(w => w.id === S.selUser)) S.selUser = (ws.find(w => w.active) || ws[0] || {}).id || null; } render(); }
+
+function renderLogin(err) {
+  $app.innerHTML = `
+  <div class="login"><div class="box">
+    <h1>ABM Sauny</h1><p class="sub">Ewidencja godzin pracy</p>
+    <form data-form="login">
+      <label class="f"><span>E-mail</span><input type="email" name="email" autocomplete="username" required></label>
+      <label class="f"><span>Hasło</span><input type="password" name="password" autocomplete="current-password" ${api.demo ? '' : 'required'}></label>
+      ${err ? `<div class="notice red small" style="margin-bottom:12px">${esc(err)}</div>` : ''}
+      <button class="btn pri" style="width:100%;justify-content:center">Zaloguj</button>
+    </form>
+    ${api.demo ? `<div class="section small muted" style="text-align:center">Tryb demo, zaloguj jako:</div>
+      <div class="chips" style="justify-content:center;margin-top:8px">
+        <button class="btn sm" data-act="demoLogin" data-email="bartek@demo.pl">Bartek (admin)</button>
+        <button class="btn sm" data-act="demoLogin" data-email="jan@demo.pl">Jan (pracownik)</button>
+        <button class="btn sm" data-act="demoLogin" data-email="marek@demo.pl">Marek (pracownik)</button>
+      </div>` : ''}
+  </div></div>`;
+}
+
+function navItems() {
+  return isAdmin()
+    ? [['pulpit', 'Pulpit'], ['godziny', 'Godziny'], ['rozliczenia', 'Rozliczenia i zaliczki'], ['prognoza', 'Prognoza'], ['zlecenia', 'Zlecenia'], ['pracownicy', 'Pracownicy']]
+    : [['pulpit', 'Pulpit'], ['godziny', 'Moje godziny'], ['rozliczenia', 'Rozliczenia'], ['prognoza', 'Prognoza']];
+}
+
+function render() {
+  if (!S.me) return renderLogin();
+  const views = { pulpit: isAdmin() ? vAdminDash : vDash, godziny: vHours, rozliczenia: vSettle, prognoza: vForecast, zlecenia: vProjects, pracownicy: vPeople };
+  if (!navItems().some(n => n[0] === S.view)) S.view = 'pulpit';
+  $app.innerHTML = `
+    ${api.demo ? `<div class="demo-bar">Tryb demo: dane zapisują się tylko w tej przeglądarce. <a href="#" data-act="demoReset">Wyczyść dane demo</a></div>` : ''}
+    <header class="top">
+      <div class="logo">ABM Sauny <span>· godziny</span></div>
+      <div class="who"><b>${esc(S.me.full_name || S.me.email)}</b>${isAdmin() ? 'administrator' : 'stawka ' + fmtPLN(S.me.hourly_rate) + '/h'}</div>
+      <button data-act="password" title="Zmień hasło" class="hide-m">Hasło</button>
+      <button data-act="logout">Wyloguj</button>
+    </header>
+    <nav class="tabs">${navItems().map(([k, l]) => `<button class="${S.view === k ? 'on' : ''}" data-act="nav" data-v="${k}">${l}</button>`).join('')}</nav>
+    <main>${views[S.view]()}</main>`;
+}
+
+const monthNav = () => `<div class="monthnav"><button class="btn sm" data-act="month" data-d="-1" aria-label="Poprzedni miesiąc">‹</button><b>${monthLabel(S.month)}</b><button class="btn sm" data-act="month" data-d="1" aria-label="Następny miesiąc">›</button></div>`;
+function userPicker() {
+  if (!isAdmin()) return '';
+  const ws = workers();
+  if (!ws.length) return `<div class="notice">Nie masz jeszcze pracowników. Dodaj ich w zakładce Pracownicy.</div>`;
+  return `<label class="picker"><span class="muted small">Pracownik</span><select data-change="selUser">${ws.map(w => `<option value="${w.id}" ${w.id === S.selUser ? 'selected' : ''}>${esc(w.full_name || w.email)}${w.active ? '' : ' (nieaktywny)'}</option>`).join('')}</select></label>`;
+}
+const stat = (lbl, val, sub, cls = '') => `<div class="card stat ${cls}"><div class="lbl">${lbl}</div><div class="val">${val}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
+
+/* ---------------- PULPIT PRACOWNIKA ---------------- */
+function vDash() {
+  const u = S.me.id, t = todayStr(), mk = monthOf(t);
+  const st = stats(u, mk + '-01', mk + '-31'), adv = advSum(u, mk + '-01', mk + '-31'), bal = balanceAll(u);
+  const miss = missingDays(u);
+  const recent = S.data.changes.filter(c => c.user_id === u).sort((a, b) => b.changed_at.localeCompare(a.changed_at)).slice(0, 3);
+  const mi = monthInfo(mk);
+  return `
+    <div class="section-h"><h1>Cześć, ${esc((S.me.full_name || '').split(' ')[0] || '')}</h1><button class="btn pri" data-act="addEntry" data-date="${t}">+ Dodaj godziny</button></div>
+    ${miss.length ? `<div class="notice" style="margin-bottom:12px">Brak wpisów za: ${miss.map(d => `<a href="#" data-act="addEntry" data-date="${d}">${DOW[dow(d)]} ${dShort(d)}</a>`).join(', ')}</div>` : ''}
+    ${st.nDraft ? `<div class="notice" style="margin-bottom:12px">Masz ${st.nDraft} niezatwierdzonych wpisów (${fmtH(st.hDraft)}). <a href="#" data-act="nav" data-v="godziny">Sprawdź i zatwierdź</a></div>` : ''}
+    <div class="grid cards">
+      ${stat('Zarobione na dziś', fmtPLN(st.earned), `${monthLabel(mk)}, zatwierdzone ${fmtH(st.h)}`, 'accent')}
+      ${stat('Niezatwierdzone', fmtPLN(st.draft), fmtH(st.hDraft) + ' roboczo')}
+      ${stat('Zaliczki w tym miesiącu', fmtPLN(adv), '')}
+      ${stat('Saldo do wypłaty', fmtPLN(bal), 'zarobione − zaliczki − wypłaty', bal < 0 ? 'neg' : '')}
+    </div>
+    <div class="grid cards section">
+      ${stat('Godziny w miesiącu', fmtH(st.h + st.hDraft), `wymiar ${mi.work} dni × 8 h = ${fmtH(mi.work * 8)}`)}
+      ${stat('Stawka', fmtPLN(S.me.hourly_rate) + '/h', 'ustala administrator')}
+    </div>
+    ${recent.length ? `<div class="section"><div class="section-h"><h3>Ostatnie zmiany administratora</h3></div><div class="list">${recent.map(changeRow).join('')}</div></div>` : ''}`;
+}
+
+/* ---------------- PULPIT ADMINA ---------------- */
+function vAdminDash() {
+  const mk = S.month, from = mk + '-01', to = mk + '-31';
+  const ws = workers().filter(w => w.active || S.data.entries.some(e => e.user_id === w.id && monthOf(e.work_date) === mk));
+  const rows = ws.map(w => { const st = stats(w.id, from, to); return { w, st, adv: advSum(w.id, from, to), bal: balanceAll(w.id), miss: missingDays(w.id).length }; });
+  const T = k => sum(rows, r => k(r));
+  return `
+    <div class="section-h"><h1>Przegląd</h1>${monthNav()}</div>
+    <div class="grid cards">
+      ${stat('Godziny zatwierdzone', fmtH(T(r => r.st.h)), `+ ${fmtH(T(r => r.st.hDraft))} roboczych`)}
+      ${stat('Koszt wynagrodzeń', fmtPLN(T(r => r.st.earned)), `+ ${fmtPLN(T(r => r.st.draft))} roboczo`, 'accent')}
+      ${stat('Zaliczki w miesiącu', fmtPLN(T(r => r.adv)), '')}
+      ${stat('Saldo do wypłaty (dziś)', fmtPLN(T(r => r.bal)), 'wszyscy pracownicy')}
+    </div>
+    <div class="section">
+      <div class="section-h"><h3>Pracownicy · ${monthLabel(mk)}</h3><button class="btn sm" data-act="csv">Eksport CSV</button></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Pracownik</th><th class="right hide-m">Stawka</th><th class="right">Godz.</th><th class="right hide-m">Robocze</th><th class="right">Zarobione</th><th class="right hide-m">Zaliczki</th><th class="right">Saldo</th><th class="hide-m">Uwagi</th></tr></thead>
+        <tbody>${rows.map(r => `<tr class="click" data-act="openUser" data-id="${r.w.id}">
+          <td><b>${esc(r.w.full_name || r.w.email)}</b></td>
+          <td class="right hide-m nowrap">${fmtPLN(r.w.hourly_rate)}</td>
+          <td class="right nowrap">${fmtH(r.st.h)}</td>
+          <td class="right hide-m nowrap">${r.st.hDraft ? `<span class="bdg draft">${fmtH(r.st.hDraft)}</span>` : '–'}</td>
+          <td class="right nowrap">${fmtPLN(r.st.earned)}</td>
+          <td class="right hide-m nowrap">${r.adv ? fmtPLN(r.adv) : '–'}</td>
+          <td class="right nowrap" style="${r.bal < 0 ? 'color:var(--danger)' : ''}"><b>${fmtPLN(r.bal)}</b></td>
+          <td class="hide-m">${r.miss ? `<span class="bdg edit">brak ${r.miss} dni</span>` : ''}</td></tr>`).join('') || `<tr><td colspan="8" class="empty-st">Brak pracowników</td></tr>`}</tbody>
+        ${rows.length ? `<tfoot><tr><td>Razem</td><td class="hide-m"></td><td class="right">${fmtH(T(r => r.st.h))}</td><td class="right hide-m">${fmtH(T(r => r.st.hDraft))}</td><td class="right">${fmtPLN(T(r => r.st.earned))}</td><td class="right hide-m">${fmtPLN(T(r => r.adv))}</td><td class="right">${fmtPLN(T(r => r.bal))}</td><td class="hide-m"></td></tr></tfoot>` : ''}
+      </table></div>
+      <p class="small muted">Kliknij pracownika, żeby zobaczyć jego godziny. „Brak dni” = dni robocze z ostatnich 2 tygodni bez wpisu.</p>
+    </div>`;
+}
+
+/* ---------------- GODZINY ---------------- */
+function calendar(mk, u, mode) {
+  const days = monthDays(mk), t = todayStr(), lead = dow(days[0]);
+  const byDay = {};
+  S.data.entries.filter(e => e.user_id === u && monthOf(e.work_date) === mk).forEach(e => (byDay[e.work_date] = byDay[e.work_date] || []).push(e));
+  const miss = new Set(mode === 'hours' ? missingDays(u) : []);
+  let h = DOW.map(d => `<div class="hd">${d}</div>`).join('') + '<div class="d empty"></div>'.repeat(lead);
+  for (const d of days) {
+    const type = dayType(d), es = byDay[d] || [], hrs = sum(es, e => e.hours), hasDraft = es.some(e => e.status !== 'zatwierdzony');
+    const hn = holidayName(d);
+    let cls = `d ${type}${d === t ? ' today' : ''}${d > t ? ' future' : ''}${miss.has(d) ? ' miss' : ''}`;
+    let inner = `<span class="n">${+d.slice(8)}</span>${hn ? `<span class="hn">${esc(hn)}</span>` : ''}`;
+    if (mode === 'hours') {
+      if (hrs) inner += `<span class="h ${hasDraft ? 'draft' : 'ok'}">${fmtH(hrs)}</span>`;
+      if (hasDraft) inner += '<span class="dot" title="niezatwierdzone"></span>';
+      h += `<button class="${cls}" data-act="dayClick" data-date="${d}">${inner}</button>`;
+    } else {
+      if (d <= t) { cls += ' locked'; if (hrs) inner += `<span class="h ${hasDraft ? 'draft' : 'ok'}">${fmtH(hrs)}</span>`; h += `<div class="${cls}">${inner}</div>`; }
+      else {
+        const on = S.fc.on.has(d);
+        if (on) { cls += ' pick'; inner += `<span class="h">${fmtH(type === 'work' ? S.fc.hW : S.fc.hS)}</span>`; }
+        h += `<button class="${cls}" data-act="fcToggle" data-date="${d}">${inner}</button>`;
+      }
+    }
+  }
+  return `<div class="cal">${h}</div>`;
+}
+const legend = extra => `<div class="legend"><span><i style="background:var(--surface)"></i>dzień roboczy</span><span><i style="background:var(--sat)"></i>sobota</span><span><i style="background:var(--sun)"></i>niedziela</span><span><i style="background:var(--hol)"></i>święto</span>${extra || ''}</div>`;
+
+function entryRow(e) {
+  const locked = e.status === 'zatwierdzony';
+  const canEdit = isAdmin() || !locked;
+  return `<div class="entry">
+    <div class="date">${dShort(e.work_date)}<small>${DOW_L[dow(e.work_date)]}</small></div>
+    <div><div>${esc(projName(e.project_id))}</div><div class="meta">${esc(e.note || '')}</div></div>
+    <div class="amt"><b>${fmtH(e.hours)}</b><span class="small muted">${fmtPLN(amt(e))}</span></div>
+    <div class="acts">
+      ${locked ? '<span class="bdg ok">zatwierdzony</span>' : '<span class="bdg draft">roboczy</span>'}
+      ${e.edited_by_admin ? '<span class="bdg edit">edytowany przez admina</span>' : ''}
+      ${isAdmin() && +e.rate !== +prof(e.user_id).hourly_rate ? `<span class="bdg mute">stawka ${fmtPLN(e.rate)}</span>` : ''}
+      <span style="margin-left:auto"></span>
+      ${canEdit ? `<button class="btn sm" data-act="editEntry" data-id="${e.id}">Edytuj</button><button class="btn sm danger" data-act="delEntry" data-id="${e.id}">Usuń</button>` : '<span class="small muted">🔒 edytuje tylko administrator</span>'}
+    </div></div>`;
+}
+
+function changeRow(c) {
+  const o = c.old_data || {}, n = c.new_data || {};
+  const parts = [];
+  const f = (lbl, a, b, fm = x => x) => { if (String(a ?? '') !== String(b ?? '')) parts.push(`${lbl}: <del>${esc(fm(a) || '–')}</del> → <ins>${esc(fm(b) || '–')}</ins>`); };
+  if (c.action === 'edycja') {
+    f('Data', o.work_date, n.work_date, dShort); f('Godziny', o.hours, n.hours, v => fmtH(v)); f('Zlecenie', o.project_id, n.project_id, projName);
+    f('Opis', o.note, n.note); f('Stawka', o.rate, n.rate, v => fmtPLN(v)); f('Status', o.status, n.status);
+  }
+  const e = c.action === 'usunięcie' ? o : n;
+  const head = { 'edycja': 'Zmieniono wpis', 'usunięcie': 'Usunięto wpis', 'dodanie': 'Dodano wpis' }[c.action] || c.action;
+  return `<div class="change">
+    <div><b>${head}</b> z dnia ${e.work_date ? dShort(e.work_date) : '?'} ${c.action !== 'edycja' ? `(${fmtH(e.hours)}, ${esc(projName(e.project_id))})` : ''}
+    <span class="small muted"> · ${new Date(c.changed_at).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })}${isAdmin() ? ' · ' + esc(prof(c.user_id).full_name) : ''}</span></div>
+    ${parts.length ? `<div class="diff small">${parts.join('<br>')}</div>` : ''}
+    ${c.reason ? `<div class="small muted">Powód: ${esc(c.reason)}</div>` : ''}
+  </div>`;
+}
+
+function vHours() {
+  const u = TU();
+  if (!u) return `<div class="section-h"><h1>Godziny</h1></div>${userPicker()}`;
+  const mk = S.month, st = stats(u, mk + '-01', mk + '-31'), mi = monthInfo(mk);
+  const es = S.data.entries.filter(e => e.user_id === u && monthOf(e.work_date) === mk).sort((a, b) => b.work_date.localeCompare(a.work_date) || b.id - a.id);
+  const drafts = es.filter(e => e.status !== 'zatwierdzony');
+  const changes = S.data.changes.filter(c => c.user_id === u).sort((a, b) => b.changed_at.localeCompare(a.changed_at)).slice(0, 30);
+  return `
+    <div class="section-h"><h1>${isAdmin() ? 'Godziny' : 'Moje godziny'}</h1>${monthNav()}</div>
+    ${userPicker()}
+    <div class="grid cards section" style="margin-top:12px">
+      ${stat('Przepracowane', fmtH(st.h + st.hDraft), `wymiar: ${mi.work} dni roboczych = ${fmtH(mi.work * 8)}`)}
+      ${stat('Zarobione (zatwierdzone)', fmtPLN(st.earned), fmtH(st.h), 'accent')}
+      ${stat('Robocze', fmtPLN(st.draft), `${drafts.length} wpisów · ${fmtH(st.hDraft)}`)}
+    </div>
+    <div class="section">${calendar(mk, u, 'hours')}${legend('<span><i style="background:var(--warn)"></i>niezatwierdzone</span><span><i style="box-shadow:inset 0 0 0 1px var(--danger)"></i>brak wpisu</span>')}</div>
+    <div class="section">
+      <div class="section-h"><h3>Wpisy · ${monthLabel(mk)}</h3>
+        <button class="btn pri" data-act="addEntry" data-date="${monthOf(todayStr()) === mk ? todayStr() : mk + '-01'}">+ Dodaj godziny</button>
+        ${drafts.length ? `<button class="btn ok" data-act="submitDrafts">Zatwierdź robocze (${drafts.length})</button>` : ''}
+      </div>
+      <div class="list">${es.map(entryRow).join('') || '<div class="empty-st">Brak wpisów w tym miesiącu</div>'}</div>
+      ${!isAdmin() && drafts.length ? '<p class="small muted">Wpisy robocze możesz poprawiać. Po zatwierdzeniu edytować może już tylko administrator.</p>' : ''}
+    </div>
+    <div class="section">
+      <div class="section-h"><h3>Zmiany wprowadzone przez administratora</h3></div>
+      <div class="list">${changes.map(changeRow).join('') || '<div class="empty-st">Brak zmian</div>'}</div>
+    </div>`;
+}
+
+function entryModal(e, date) {
+  const u = e ? e.user_id : TU();
+  const p = prof(u), locked = e && e.status === 'zatwierdzony';
+  const projs = S.data.projects.filter(x => x.active || (e && x.id === e.project_id));
+  const maxDate = isAdmin() ? '' : `max="${todayStr()}"`;
+  openModal(`
+    <form data-form="entry">
+      <div class="mh"><h3>${e ? 'Edytuj wpis' : 'Dodaj godziny'}${isAdmin() ? ' · ' + esc(p.full_name) : ''}</h3><button type="button" class="x" data-act="close">×</button></div>
+      <div class="mb">
+        <input type="hidden" name="id" value="${e ? e.id : ''}"><input type="hidden" name="user_id" value="${u}">
+        <div class="row2">
+          <label class="f"><span>Data</span><input type="date" name="work_date" value="${e ? e.work_date : date}" ${maxDate} required></label>
+          <label class="f"><span>Liczba godzin</span><input type="number" name="hours" min="0.25" max="24" step="0.25" inputmode="decimal" value="${e ? e.hours : ''}" placeholder="np. 8" required></label>
+        </div>
+        <label class="f"><span>Zlecenie</span><select name="project_id"><option value="">bez zlecenia</option>${projs.map(x => `<option value="${x.id}" ${e && e.project_id === x.id ? 'selected' : ''}>${esc(x.name)}${x.client ? ' · ' + esc(x.client) : ''}</option>`).join('')}</select></label>
+        <label class="f"><span>Co było robione (opcjonalnie)</span><textarea name="note" placeholder="np. montaż ław, elewacja">${esc(e ? e.note : '')}</textarea></label>
+        ${isAdmin() ? `
+          <div class="row2">
+            <label class="f"><span>Stawka dla tego wpisu (zł/h)</span><input type="number" name="rate" step="0.01" min="0" value="${e ? e.rate : p.hourly_rate}"></label>
+            <label class="f"><span>Status</span><select name="status"><option value="zatwierdzony" ${!e || locked ? 'selected' : ''}>zatwierdzony</option><option value="roboczy" ${e && !locked ? 'selected' : ''}>roboczy (odblokowany)</option></select></label>
+          </div>
+          ${locked || (!e && u !== S.me.id) ? `<label class="f"><span>Powód zmiany (zobaczy go pracownik)</span><input type="text" name="admin_reason" placeholder="np. korekta po rozmowie"></label>` : ''}` : ''}
+        ${!isAdmin() ? '<p class="small muted" style="margin:0">„Zapisz i zatwierdź” blokuje wpis. Później poprawić go może tylko administrator.</p>' : ''}
+        ${locked && isAdmin() ? '<div class="notice small">Ten wpis jest zatwierdzony. Zmiana zostanie zapisana w historii i pracownik ją zobaczy.</div>' : ''}
+      </div>
+      <div class="mf">
+        <button type="button" class="btn" data-act="close">Anuluj</button>
+        ${isAdmin() ? '<button class="btn pri" value="save">Zapisz</button>'
+          : '<button class="btn" value="draft">Zapisz roboczo</button><button class="btn pri" value="submit">Zapisz i zatwierdź</button>'}
+      </div>
+    </form>`);
+  setTimeout(() => { const h = dlg.querySelector('[name=hours]'); if (h && !e) h.focus(); }, 50);
+}
+
+/* ---------------- ROZLICZENIA ---------------- */
+function vSettle() {
+  const u = TU();
+  if (!u) return `<div class="section-h"><h1>Rozliczenia</h1></div>${userPicker()}`;
+  const t = todayStr(), mk = monthOf(t);
+  const st = stats(u, mk + '-01', mk + '-31'), advM = advSum(u, mk + '-01', mk + '-31'), bal = balanceAll(u);
+  const months = new Set([mk]);
+  S.data.entries.filter(e => e.user_id === u).forEach(e => months.add(monthOf(e.work_date)));
+  S.data.advances.filter(a => a.user_id === u).forEach(a => months.add(monthOf(a.adv_date)));
+  S.data.payouts.filter(p => p.user_id === u).forEach(p => months.add(p.period));
+  const ms = [...months].sort().reverse().slice(0, 12);
+  const advs = S.data.advances.filter(a => a.user_id === u).sort((a, b) => b.adv_date.localeCompare(a.adv_date));
+  const pays = S.data.payouts.filter(p => p.user_id === u).sort((a, b) => b.period.localeCompare(a.period) || b.paid_date.localeCompare(a.paid_date));
+  return `
+    <div class="section-h"><h1>${isAdmin() ? 'Rozliczenia i zaliczki' : 'Rozliczenia'}</h1></div>
+    ${userPicker()}
+    <div class="grid cards section" style="margin-top:12px">
+      ${stat('Zarobione na dziś', fmtPLN(st.earned), monthLabel(mk) + ', zatwierdzone', 'accent')}
+      ${stat('Zaliczki w tym miesiącu', fmtPLN(advM), advs.filter(a => monthOf(a.adv_date) === mk).length + ' szt.')}
+      ${stat('Dostępne do wypłaty / zaliczki', fmtPLN(bal), bal < 0 ? 'zaliczki przekraczają zarobek' : 'zarobione − zaliczki − wypłaty', bal < 0 ? 'neg' : '')}
+      ${st.draft ? stat('Czeka na zatwierdzenie', fmtPLN(st.draft), fmtH(st.hDraft) + ' roboczych') : ''}
+    </div>
+    <div class="section">
+      <div class="section-h"><h3>Miesiące</h3>${isAdmin() ? `<button class="btn pri" data-act="payout">Rozlicz miesiąc (wypłata)</button>` : ''}</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Miesiąc</th><th class="right">Godz.</th><th class="right">Zarobione</th><th class="right">Zaliczki</th><th class="right">Wypłacono</th><th class="right">Saldo na koniec</th></tr></thead>
+        <tbody>${ms.map(m => { const s = stats(u, m + '-01', m + '-31'); const b = balanceThrough(u, m); const paid = paySum(u, null, m);
+          return `<tr><td style="text-transform:capitalize">${monthLabel(m)}${s.nDraft ? ' <span class="bdg draft">robocze</span>' : ''}</td><td class="right nowrap">${fmtH(s.h)}</td><td class="right nowrap">${fmtPLN(s.earned)}</td><td class="right nowrap">${fmtPLN(advSum(u, m + '-01', m + '-31'))}</td><td class="right nowrap">${paid ? fmtPLN(paid) : '–'}</td><td class="right nowrap" style="${b < -0.004 ? 'color:var(--danger)' : ''}"><b>${fmtPLN(b)}</b></td></tr>`; }).join('')}</tbody>
+      </table></div>
+      <p class="small muted">Saldo przechodzi na kolejny miesiąc, także ujemne (gdy zaliczki były większe niż zarobek).</p>
+    </div>
+    <div class="section">
+      <div class="section-h"><h3>Zaliczki</h3>${isAdmin() ? `<button class="btn pri" data-act="advance">+ Wpisz zaliczkę</button>` : ''}</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Data</th><th class="right">Kwota</th><th>Uwagi</th>${isAdmin() ? '<th></th>' : ''}</tr></thead>
+        <tbody>${advs.map(a => `<tr><td class="nowrap">${dShort(a.adv_date)}.${a.adv_date.slice(0, 4)}</td><td class="right nowrap"><b>${fmtPLN(a.amount)}</b></td><td>${esc(a.note)}</td>${isAdmin() ? `<td class="right"><button class="btn sm danger" data-act="delAdvance" data-id="${a.id}">Usuń</button></td>` : ''}</tr>`).join('') || `<tr><td colspan="4" class="empty-st">Brak zaliczek</td></tr>`}</tbody>
+      </table></div>
+    </div>
+    <div class="section">
+      <div class="section-h"><h3>Wypłaty</h3></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Za miesiąc</th><th>Data wypłaty</th><th class="right">Kwota</th><th>Uwagi</th>${isAdmin() ? '<th></th>' : ''}</tr></thead>
+        <tbody>${pays.map(p => `<tr><td style="text-transform:capitalize">${monthLabel(p.period)}</td><td class="nowrap">${dShort(p.paid_date)}.${p.paid_date.slice(0, 4)}</td><td class="right nowrap"><b>${fmtPLN(p.amount)}</b></td><td>${esc(p.note)}</td>${isAdmin() ? `<td class="right"><button class="btn sm danger" data-act="delPayout" data-id="${p.id}">Usuń</button></td>` : ''}</tr>`).join('') || `<tr><td colspan="5" class="empty-st">Brak wypłat</td></tr>`}</tbody>
+      </table></div>
+    </div>`;
+}
+
+/* ---------------- PROGNOZA ---------------- */
+function fcInit(u, mk) {
+  const key = u + '|' + mk;
+  if (S.fc.key === key) return;
+  S.fc.key = key; S.fc.on = new Set(); S.fc.rate = null;
+  const t = todayStr();
+  monthDays(mk).forEach(d => { if (d > t && dayType(d) === 'work') S.fc.on.add(d); });
+}
+function vForecast() {
+  const u = TU();
+  if (!u) return `<div class="section-h"><h1>Prognoza</h1></div>${userPicker()}`;
+  const mk = S.month; fcInit(u, mk);
+  const t = todayStr(), p = prof(u), rate = S.fc.rate ?? +p.hourly_rate;
+  const st = stats(u, mk + '-01', mk + '-31');
+  const done = st.earned + st.draft, doneH = st.h + st.hDraft;
+  const on = [...S.fc.on];
+  const nW = on.filter(d => dayType(d) === 'work').length, nS = on.filter(d => dayType(d) === 'sat').length, nN = on.filter(d => dayType(d) === 'sun' || dayType(d) === 'holiday').length;
+  const fh = nW * S.fc.hW + (nS + nN) * S.fc.hS, fv = fh * rate;
+  const mi = monthInfo(mk);
+  const futureSat = monthDays(mk).filter(d => d > t && dayType(d) === 'sat').length;
+  const past = mk < monthOf(t);
+  return `
+    <div class="section-h"><h1>Prognoza</h1>${monthNav()}</div>
+    ${userPicker()}
+    <div class="grid section" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:12px;align-items:start">
+      <div>
+        ${past ? '<div class="notice" style="margin-bottom:10px">Ten miesiąc już minął, pokazuję tylko faktyczne godziny.</div>' : '<p class="small muted" style="margin:0 0 8px">Kliknij dni w kalendarzu, żeby dodać lub usunąć je z prognozy. Dni do dziś pokazują faktyczne godziny.</p>'}
+        ${calendar(mk, u, 'forecast')}
+        ${legend('<span><i style="background:#e6efe6;border-color:var(--ok)"></i>zaplanowany w prognozie</span>')}
+        ${past ? '' : `<div class="chips section" style="margin-top:12px">
+          <button class="btn sm" data-act="fcPreset" data-p="work">Tylko dni robocze</button>
+          <button class="btn sm" data-act="fcPreset" data-p="sat">+ wszystkie soboty</button>
+          <button class="btn sm" data-act="fcPreset" data-p="all">+ soboty i niedziele</button>
+          <button class="btn sm" data-act="fcPreset" data-p="none">Wyczyść</button>
+        </div>`}
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:10px;text-transform:capitalize">${monthLabel(mk)}</h3>
+        <div class="small muted" style="margin-bottom:12px">${mi.work} dni roboczych · ${mi.sat} sobót · ${mi.sun} niedziel${mi.hol.length ? '<br>Święta: ' + mi.hol.map(h => `${dShort(h.d)} ${esc(h.name)}`).join(', ') : ''}</div>
+        <div class="row2">
+          <label class="f"><span>Godzin w dzień roboczy</span><input type="number" step="0.5" min="0" max="24" value="${S.fc.hW}" data-change="fcHW"></label>
+          <label class="f"><span>Godzin w weekend/święto</span><input type="number" step="0.5" min="0" max="24" value="${S.fc.hS}" data-change="fcHS"></label>
+        </div>
+        <label class="f"><span>Stawka zł/h ${isAdmin() ? '(możesz zasymulować inną)' : ''}</span><input type="number" step="0.5" min="0" value="${rate}" ${isAdmin() ? 'data-change="fcRate"' : 'disabled'}></label>
+        <div class="fc-res">
+          <span>Już przepracowane (${fmtH(doneH)})</span><b class="right">${fmtPLN(done)}</b>
+          <span>Prognoza: ${nW} dni rob.${nS ? ` + ${nS} sob.` : ''}${nN ? ` + ${nN} nd./św.` : ''} (${fmtH(fh)})</span><b class="right">${fmtPLN(fv)}</b>
+          <span class="tot">Razem na koniec miesiąca</span><span class="tot right">${fmtPLN(done + fv)}</span>
+        </div>
+        ${!past && futureSat ? `<p class="small muted" style="margin-bottom:0">Każda dodatkowa sobota po ${fmtH(S.fc.hS)} = <b>${fmtPLN(S.fc.hS * rate)}</b>. Zostało ${futureSat} sobót w tym miesiącu.</p>` : ''}
+        <p class="small muted" style="margin-bottom:0">Po odjęciu zaliczek z tego miesiąca (${fmtPLN(advSum(u, mk + '-01', mk + '-31'))}): <b>${fmtPLN(done + fv - advSum(u, mk + '-01', mk + '-31'))}</b></p>
+      </div>
+    </div>`;
+}
+
+/* ---------------- ZLECENIA (admin) ---------------- */
+function vProjects() {
+  const mk = S.month;
+  const all = S.data.entries;
+  const rows = S.data.projects.slice().sort((a, b) => (b.active - a.active) || a.name.localeCompare(b.name)).map(p => {
+    const es = all.filter(e => e.project_id === p.id), em = es.filter(e => monthOf(e.work_date) === mk);
+    return { p, h: sum(es, e => e.hours), c: sum(es, amt), hm: sum(em, e => e.hours), cm: sum(em, amt), n: new Set(es.map(e => e.user_id)).size };
+  });
+  const none = all.filter(e => !e.project_id);
+  return `
+    <div class="section-h"><h1>Zlecenia</h1>${monthNav()}<button class="btn pri" data-act="project">+ Nowe zlecenie</button></div>
+    <p class="muted small" style="margin-top:0">Koszt robocizny = godziny × stawka pracownika (wpisy zatwierdzone i robocze).</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Zlecenie</th><th class="right">Godz. ${MONTHS[+mk.slice(5) - 1].slice(0, 3)}.</th><th class="right hide-m">Koszt ${MONTHS[+mk.slice(5) - 1].slice(0, 3)}.</th><th class="right">Godz. łącznie</th><th class="right">Koszt łącznie</th><th></th></tr></thead>
+      <tbody>${rows.map(r => `<tr style="${r.p.active ? '' : 'opacity:.55'}">
+        <td><b>${esc(r.p.name)}</b>${r.p.client ? `<div class="small muted">${esc(r.p.client)}</div>` : ''}${r.p.active ? '' : ' <span class="bdg mute">zakończone</span>'}</td>
+        <td class="right nowrap">${fmtH(r.hm)}</td><td class="right nowrap hide-m">${fmtPLN(r.cm)}</td>
+        <td class="right nowrap">${fmtH(r.h)}<div class="small muted">${r.n} os.</div></td><td class="right nowrap"><b>${fmtPLN(r.c)}</b></td>
+        <td class="right"><button class="btn sm" data-act="project" data-id="${r.p.id}">Edytuj</button></td></tr>`).join('')}
+        ${none.length ? `<tr><td class="muted">bez zlecenia</td><td class="right">${fmtH(sum(none.filter(e => monthOf(e.work_date) === mk), e => e.hours))}</td><td class="right hide-m">${fmtPLN(sum(none.filter(e => monthOf(e.work_date) === mk), amt))}</td><td class="right">${fmtH(sum(none, e => e.hours))}</td><td class="right">${fmtPLN(sum(none, amt))}</td><td></td></tr>` : ''}
+      </tbody></table></div>`;
+}
+function projectModal(p) {
+  openModal(`<form data-form="project">
+    <div class="mh"><h3>${p ? 'Edytuj zlecenie' : 'Nowe zlecenie'}</h3><button type="button" class="x" data-act="close">×</button></div>
+    <div class="mb">
+      <input type="hidden" name="id" value="${p ? p.id : ''}">
+      <label class="f"><span>Nazwa</span><input type="text" name="name" value="${esc(p ? p.name : '')}" placeholder="np. Sauna zewnętrzna 230×230" required></label>
+      <label class="f"><span>Klient / miejsce</span><input type="text" name="client" value="${esc(p ? p.client : '')}" placeholder="np. Kowalczyk, Kraków"></label>
+      ${p ? `<label class="f"><span>Status</span><select name="active"><option value="1" ${p.active ? 'selected' : ''}>aktywne (widoczne dla pracowników)</option><option value="0" ${p.active ? '' : 'selected'}>zakończone (ukryte przy wpisywaniu)</option></select></label>` : ''}
+    </div>
+    <div class="mf"><button type="button" class="btn" data-act="close">Anuluj</button><button class="btn pri">Zapisz</button></div>
+  </form>`);
+}
+
+/* ---------------- PRACOWNICY (admin) ---------------- */
+function vPeople() {
+  const ps = S.data.profiles.slice().sort((a, b) => (a.role === 'admin' ? -1 : 0) - (b.role === 'admin' ? -1 : 0) || (b.active - a.active) || (a.full_name || '').localeCompare(b.full_name || ''));
+  return `
+    <div class="section-h"><h1>Pracownicy</h1><button class="btn pri" data-act="newEmp">+ Dodaj pracownika</button></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Imię i nazwisko</th><th class="hide-m">Login (e-mail)</th><th class="right">Stawka</th><th>Rola</th><th></th></tr></thead>
+      <tbody>${ps.map(p => `<tr style="${p.active ? '' : 'opacity:.55'}">
+        <td><b>${esc(p.full_name || '–')}</b>${p.active ? '' : ' <span class="bdg mute">nieaktywny</span>'}</td>
+        <td class="hide-m">${esc(p.email)}</td>
+        <td class="right nowrap">${p.role === 'admin' ? '–' : fmtPLN(p.hourly_rate) + '/h'}</td>
+        <td>${p.role === 'admin' ? '<span class="bdg mute">admin</span>' : 'pracownik'}</td>
+        <td class="right"><button class="btn sm" data-act="editEmp" data-id="${p.id}">Edytuj</button></td></tr>`).join('')}</tbody>
+    </table></div>
+    <p class="small muted">Stawkę widzi pracownik, ale zmienić może ją tylko administrator. Nowa stawka liczy się dla wpisów dodanych od teraz (albo od wybranej daty).</p>`;
+}
+function empModal(p) {
+  const t = todayStr();
+  openModal(p ? `<form data-form="empEdit">
+    <div class="mh"><h3>Edytuj: ${esc(p.full_name || p.email)}</h3><button type="button" class="x" data-act="close">×</button></div>
+    <div class="mb">
+      <input type="hidden" name="id" value="${p.id}">
+      <label class="f"><span>Imię i nazwisko</span><input type="text" name="full_name" value="${esc(p.full_name)}" required></label>
+      <div class="row2">
+        <label class="f"><span>Stawka godzinowa (zł/h)</span><input type="number" name="hourly_rate" step="0.01" min="0" value="${p.hourly_rate}"></label>
+        <label class="f"><span>Rola</span><select name="role" ${p.id === S.me.id ? 'disabled' : ''}><option value="pracownik" ${p.role !== 'admin' ? 'selected' : ''}>pracownik</option><option value="admin" ${p.role === 'admin' ? 'selected' : ''}>administrator</option></select></label>
+      </div>
+      <label class="f"><span>Nowa stawka obowiązuje od</span><select name="rate_mode">
+        <option value="now">teraz (nowe i robocze wpisy)</option>
+        <option value="month">1 dnia bieżącego miesiąca (${dShort(monthOf(t) + '-01')})</option>
+        <option value="date">wybranej daty (poniżej)</option></select></label>
+      <label class="f"><span>Data (dla opcji „wybranej daty”)</span><input type="date" name="rate_from" value="${t}"></label>
+      <label class="f"><span>Konto</span><select name="active" ${p.id === S.me.id ? 'disabled' : ''}><option value="1" ${p.active ? 'selected' : ''}>aktywne</option><option value="0" ${p.active ? '' : 'selected'}>nieaktywne (brak logowania, historia zostaje)</option></select></label>
+    </div>
+    <div class="mf"><button type="button" class="btn" data-act="close">Anuluj</button><button class="btn pri">Zapisz</button></div>
+  </form>` : `<form data-form="empNew">
+    <div class="mh"><h3>Nowy pracownik</h3><button type="button" class="x" data-act="close">×</button></div>
+    <div class="mb">
+      <label class="f"><span>Imię i nazwisko</span><input type="text" name="full_name" required></label>
+      <label class="f"><span>E-mail (login)</span><input type="email" name="email" placeholder="np. jan.kowalski@abmsauny.pl" required></label>
+      <div class="row2">
+        <label class="f"><span>Hasło startowe (min. 6 znaków)</span><input type="text" name="password" minlength="6" value="${Math.random().toString(36).slice(2, 10)}" required></label>
+        <label class="f"><span>Stawka (zł/h)</span><input type="number" name="hourly_rate" step="0.01" min="0" required></label>
+      </div>
+      <p class="small muted" style="margin-top:0">Przekaż pracownikowi link, e-mail i hasło. Hasło może potem zmienić sam (przycisk „Hasło”).</p>
+    </div>
+    <div class="mf"><button type="button" class="btn" data-act="close">Anuluj</button><button class="btn pri">Utwórz konto</button></div>
+  </form>`);
+}
+
+/* ---------------- modale: zaliczka, wypłata, hasło ---------------- */
+function advanceModal() {
+  const u = TU(), p = prof(u);
+  openModal(`<form data-form="advance">
+    <div class="mh"><h3>Zaliczka · ${esc(p.full_name)}</h3><button type="button" class="x" data-act="close">×</button></div>
+    <div class="mb">
+      <div class="notice small" style="margin-bottom:12px">Dostępne teraz: <b>${fmtPLN(balanceAll(u))}</b> (zarobione − zaliczki − wypłaty)</div>
+      <div class="row2">
+        <label class="f"><span>Kwota (zł)</span><input type="number" name="amount" step="0.01" min="0.01" inputmode="decimal" required></label>
+        <label class="f"><span>Data</span><input type="date" name="adv_date" value="${todayStr()}" required></label>
+      </div>
+      <label class="f"><span>Uwagi</span><input type="text" name="note" placeholder="np. gotówka, przelew"></label>
+    </div>
+    <div class="mf"><button type="button" class="btn" data-act="close">Anuluj</button><button class="btn pri">Zapisz zaliczkę</button></div>
+  </form>`);
+}
+function payoutModal() {
+  const u = TU(), p = prof(u), t = todayStr();
+  const def = addMonths(monthOf(t), -1);
+  const opts = [0, -1, -2, -3].map(n => addMonths(monthOf(t), n));
+  openModal(`<form data-form="payout">
+    <div class="mh"><h3>Rozlicz miesiąc · ${esc(p.full_name)}</h3><button type="button" class="x" data-act="close">×</button></div>
+    <div class="mb">
+      <label class="f"><span>Za miesiąc</span><select name="period" data-change="payPeriod">${opts.map(m => `<option value="${m}" ${m === def ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}</select></label>
+      <div class="notice small" style="margin-bottom:12px" id="payInfo"></div>
+      <div class="row2">
+        <label class="f"><span>Kwota wypłaty (zł)</span><input type="number" name="amount" step="0.01" required></label>
+        <label class="f"><span>Data wypłaty</span><input type="date" name="paid_date" value="${t}" required></label>
+      </div>
+      <label class="f"><span>Uwagi</span><input type="text" name="note" placeholder="np. przelew"></label>
+    </div>
+    <div class="mf"><button type="button" class="btn" data-act="close">Anuluj</button><button class="btn pri">Zapisz wypłatę</button></div>
+  </form>`);
+  payInfo();
+}
+function payInfo() {
+  const f = dlg.querySelector('form[data-form=payout]'); if (!f) return;
+  const u = TU(), m = f.period.value, s = stats(u, m + '-01', m + '-31');
+  const b = balanceThrough(u, m);
+  f.amount.value = Math.max(0, Math.round(b * 100) / 100);
+  document.getElementById('payInfo').innerHTML = `Zarobione w ${monthLabel(m)}: <b>${fmtPLN(s.earned)}</b>, zaliczki: <b>${fmtPLN(advSum(u, m + '-01', m + '-31'))}</b>, saldo z poprzednich miesięcy: <b>${fmtPLN(balanceThrough(u, addMonths(m, -1)))}</b>${paySum(u, null, m) ? `, już wypłacono: <b>${fmtPLN(paySum(u, null, m))}</b>` : ''}.<br>Do wypłaty: <b>${fmtPLN(b)}</b>${s.nDraft ? `<br>⚠ ${s.nDraft} wpisów w tym miesiącu jest jeszcze niezatwierdzonych (${fmtPLN(s.draft)}).` : ''}`;
+}
+function passwordModal() {
+  openModal(`<form data-form="password">
+    <div class="mh"><h3>Zmiana hasła</h3><button type="button" class="x" data-act="close">×</button></div>
+    <div class="mb"><label class="f"><span>Nowe hasło (min. 6 znaków)</span><input type="password" name="pw" minlength="6" autocomplete="new-password" required></label></div>
+    <div class="mf"><button type="button" class="btn" data-act="close">Anuluj</button><button class="btn pri">Zmień hasło</button></div>
+  </form>`);
+}
+function confirmModal(title, body, onOk, withReason) {
+  openModal(`<form data-form="confirm">
+    <div class="mh"><h3>${title}</h3><button type="button" class="x" data-act="close">×</button></div>
+    <div class="mb"><p style="margin-top:0">${body}</p>${withReason ? '<label class="f"><span>Powód (zobaczy go pracownik)</span><input type="text" name="reason"></label>' : ''}</div>
+    <div class="mf"><button type="button" class="btn" data-act="close">Anuluj</button><button class="btn pri">Potwierdź</button></div>
+  </form>`);
+  S._confirm = onOk;
+}
+function openModal(html) { dlg.innerHTML = html; if (!dlg.open) dlg.showModal(); }
+function closeModal() { if (dlg.open) dlg.close(); }
+dlg.addEventListener('click', e => { if (e.target === dlg) closeModal(); });
+
+/* ---------------- eksport CSV ---------------- */
+function exportCsv() {
+  const mk = S.month;
+  const rows = [['Pracownik', 'Data', 'Dzień', 'Zlecenie', 'Opis', 'Godziny', 'Stawka', 'Kwota', 'Status']];
+  S.data.entries.filter(e => monthOf(e.work_date) === mk).sort((a, b) => prof(a.user_id).full_name.localeCompare(prof(b.user_id).full_name) || a.work_date.localeCompare(b.work_date))
+    .forEach(e => rows.push([prof(e.user_id).full_name, e.work_date, DOW_L[dow(e.work_date)], projName(e.project_id), e.note || '', String(e.hours).replace('.', ','), String(e.rate).replace('.', ','), amt(e).toFixed(2).replace('.', ','), e.status]));
+  const csv = '﻿' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `godziny_${mk}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* =====================================================================
+   AKCJE
+   ===================================================================== */
+const ACT = {
+  nav: d => { S.view = d.v; render(); window.scrollTo(0, 0); },
+  month: d => { S.month = addMonths(S.month, +d.d); render(); },
+  logout: async () => { await api.logout(); S.me = null; S.data = null; S.view = 'pulpit'; S.selUser = null; S.fc.key = null; render(); },
+  demoLogin: async d => { try { S.me = await api.login(d.email, ''); await reload(); } catch (e) { renderLogin(e.message); } },
+  demoReset: () => api.reset(),
+  password: () => passwordModal(),
+  close: () => closeModal(),
+  openUser: d => { S.selUser = d.id; S.view = 'godziny'; render(); window.scrollTo(0, 0); },
+  dayClick: d => {
+    const u = TU(), es = S.data.entries.filter(e => e.user_id === u && e.work_date === d.date);
+    if (!isAdmin() && d.date > todayStr()) return toast('Nie można wpisywać godzin z wyprzedzeniem', true);
+    if (es.length === 1 && (isAdmin() || es[0].status !== 'zatwierdzony')) return entryModal(es[0]);
+    if (es.length && !isAdmin() && es.every(e => e.status === 'zatwierdzony')) toast('Ten dzień jest zatwierdzony. Możesz dodać kolejny wpis.');
+    entryModal(null, d.date);
+  },
+  addEntry: d => entryModal(null, d.date || todayStr()),
+  editEntry: d => entryModal(S.data.entries.find(e => e.id == d.id)),
+  delEntry: d => {
+    const e = S.data.entries.find(x => x.id == d.id);
+    const locked = e.status === 'zatwierdzony';
+    confirmModal('Usunąć wpis?', `${dLong(e.work_date)} · ${fmtH(e.hours)} · ${esc(projName(e.project_id))}${locked ? '<br><span class="small muted">Wpis jest zatwierdzony, usunięcie zobaczy pracownik w historii zmian.</span>' : ''}`,
+      f => run(() => api.deleteEntry(e.id, f && f.reason ? f.reason.value : null), 'Usunięto'), locked && isAdmin());
+  },
+  submitDrafts: () => {
+    const u = TU(), ids = S.data.entries.filter(e => e.user_id === u && monthOf(e.work_date) === S.month && e.status !== 'zatwierdzony').map(e => e.id);
+    const h = sum(S.data.entries.filter(e => ids.includes(e.id)), e => e.hours);
+    confirmModal('Zatwierdzić wpisy?', `${ids.length} wpisów, razem ${fmtH(h)}. Po zatwierdzeniu ${isAdmin() ? 'pracownik nie będzie mógł ich zmienić' : 'nie będzie można ich edytować, zmiany wprowadza tylko administrator'}.`,
+      () => run(() => api.submitEntries(ids), 'Zatwierdzono'));
+  },
+  advance: () => advanceModal(),
+  delAdvance: d => confirmModal('Usunąć zaliczkę?', 'Zaliczka zniknie z rozliczenia pracownika.', () => run(() => api.deleteAdvance(+d.id), 'Usunięto')),
+  payout: () => payoutModal(),
+  delPayout: d => confirmModal('Usunąć wypłatę?', 'Kwota wróci do salda pracownika.', () => run(() => api.deletePayout(+d.id), 'Usunięto')),
+  project: d => projectModal(d.id ? S.data.projects.find(p => p.id == d.id) : null),
+  newEmp: () => empModal(null),
+  editEmp: d => empModal(S.data.profiles.find(p => p.id === d.id)),
+  csv: () => exportCsv(),
+  fcToggle: d => { S.fc.on.has(d.date) ? S.fc.on.delete(d.date) : S.fc.on.add(d.date); render(); },
+  fcPreset: d => {
+    const t = todayStr(); S.fc.on = new Set();
+    monthDays(S.month).forEach(x => {
+      if (x <= t) return; const ty = dayType(x);
+      if (d.p === 'none') return;
+      if (ty === 'work' || (d.p === 'sat' && ty === 'sat') || (d.p === 'all' && (ty === 'sat' || ty === 'sun'))) S.fc.on.add(x);
+    });
+    render();
+  }
+};
+const CHANGE = {
+  selUser: el => { S.selUser = el.value; render(); },
+  fcHW: el => { S.fc.hW = num(el.value); render(); },
+  fcHS: el => { S.fc.hS = num(el.value); render(); },
+  fcRate: el => { S.fc.rate = num(el.value); render(); },
+  payPeriod: () => payInfo()
+};
+const FORM = {
+  login: async f => {
+    try { S.me = await api.login(f.email.value, f.password.value); await reload(); }
+    catch (e) { renderLogin(e.message); }
+  },
+  entry: async (f, submitter) => {
+    const hours = num(f.hours.value);
+    if (hours <= 0 || hours > 24) return toast('Podaj liczbę godzin od 0,25 do 24', true);
+    if (!isAdmin() && f.work_date.value > todayStr()) return toast('Nie można wpisywać przyszłych dni', true);
+    const e = { work_date: f.work_date.value, hours, project_id: f.project_id.value ? +f.project_id.value : null, note: f.note.value.trim() };
+    if (f.id.value) e.id = +f.id.value;
+    if (isAdmin()) {
+      e.user_id = f.user_id.value; e.rate = num(f.rate.value); e.status = f.status.value;
+      const orig = e.id && S.data.entries.find(x => x.id === e.id);
+      if (f.admin_reason) e.admin_reason = f.admin_reason.value.trim() || null;
+      if (orig && orig.status === 'zatwierdzony' && !e.admin_reason) return toast('Wpisz powód zmiany, pracownik go zobaczy', true);
+    } else {
+      e.status = submitter && submitter.value === 'submit' ? 'zatwierdzony' : 'roboczy';
+    }
+    closeModal();
+    run(() => api.saveEntry(e), e.status === 'zatwierdzony' && !isAdmin() ? 'Zapisano i zatwierdzono' : 'Zapisano');
+  },
+  project: f => {
+    const p = { name: f.name.value.trim(), client: f.client.value.trim() };
+    if (f.id.value) { p.id = +f.id.value; p.active = f.active.value === '1'; }
+    closeModal(); run(() => api.saveProject(p), 'Zapisano');
+  },
+  empNew: f => {
+    const d = { full_name: f.full_name.value.trim(), email: f.email.value.trim(), password: f.password.value, hourly_rate: num(f.hourly_rate.value) };
+    closeModal(); run(() => api.createEmployee(d), `Utworzono konto: ${d.email} / ${d.password}`);
+  },
+  empEdit: f => {
+    const id = f.id.value, p = prof(id), rate = num(f.hourly_rate.value);
+    const patch = { full_name: f.full_name.value.trim(), hourly_rate: rate };
+    if (id !== S.me.id) { patch.role = f.role.value; patch.active = f.active.value === '1'; }
+    const mode = f.rate_mode.value, from = mode === 'month' ? monthOf(todayStr()) + '-01' : mode === 'date' ? f.rate_from.value : null;
+    closeModal();
+    run(async () => {
+      await api.updateProfile(id, patch);
+      if (from && rate !== +p.hourly_rate) await api.recalcRate(id, from, rate, `Zmiana stawki na ${fmtPLN(rate)}/h od ${dShort(from)}`);
+    }, 'Zapisano');
+  },
+  advance: f => {
+    const a = { user_id: TU(), amount: num(f.amount.value), adv_date: f.adv_date.value, note: f.note.value.trim() };
+    if (a.amount <= 0) return toast('Podaj kwotę', true);
+    closeModal(); run(() => api.addAdvance(a), 'Zapisano zaliczkę');
+  },
+  payout: f => {
+    const p = { user_id: TU(), period: f.period.value, amount: num(f.amount.value), paid_date: f.paid_date.value, note: f.note.value.trim() };
+    closeModal(); run(() => api.addPayout(p), 'Zapisano wypłatę');
+  },
+  password: async f => {
+    try { await api.changePassword(f.pw.value); closeModal(); toast('Hasło zmienione'); } catch (e) { toast(e.message, true); }
+  },
+  confirm: f => { const fn = S._confirm; S._confirm = null; closeModal(); fn && fn(f); }
+};
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  if (b.tagName === 'A') e.preventDefault();
+  const fn = ACT[b.dataset.act]; if (fn) fn(b.dataset, b);
+});
+document.addEventListener('change', e => { const k = e.target.dataset && e.target.dataset.change; if (k && CHANGE[k]) CHANGE[k](e.target); });
+document.addEventListener('submit', e => {
+  const f = e.target, k = f.dataset.form; if (!k || !FORM[k]) return;
+  e.preventDefault(); FORM[k](f, e.submitter);
+});
+
+/* ---------------- start ---------------- */
+(async () => {
+  $app.innerHTML = '<div class="login"><div class="muted">Ładowanie…</div></div>';
+  try { S.me = await api.init(); if (S.me) await reload(); else render(); }
+  catch (e) { renderLogin(e.message); }
+})();
+</script>
+</body>
+</html>
