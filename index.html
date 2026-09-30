@@ -162,7 +162,12 @@ dialog .mf{padding:12px 18px 16px;display:flex;gap:8px;justify-content:flex-end;
   th,td{padding:8px 9px}
   .hide-m{display:none}
   header.top .logo span{display:none}
-  header.top .who{font-size:12px}
+  header.top{gap:8px;padding:10px 12px}
+  header.top .logo{font-size:19px;white-space:nowrap}
+  header.top .who{font-size:11px;min-width:0}
+  header.top .who b{font-size:13px}
+  header.top button{padding:6px 8px;font-size:12px}
+  nav.tabs{top:52px}
 }
 </style>
 </head>
@@ -545,7 +550,7 @@ function render() {
     <header class="top">
       <div class="logo">ABM Sauny <span>· godziny</span></div>
       <div class="who"><b>${esc(S.me.full_name || S.me.email)}</b>${isAdmin() ? 'administrator' : 'stawka ' + fmtPLN(S.me.hourly_rate) + '/h'}</div>
-      <button data-act="password" title="Zmień hasło" class="hide-m">Hasło</button>
+      <button data-act="password" title="Zmień hasło">Hasło</button>
       <button data-act="logout">Wyloguj</button>
     </header>
     <nav class="tabs">${navItems().map(([k, l]) => `<button class="${S.view === k ? 'on' : ''}" data-act="nav" data-v="${k}">${l}</button>`).join('')}</nav>
