@@ -799,7 +799,7 @@ function vSettle() {
 
 /* ---------------- PROGNOZA ---------------- */
 function fcInit(u, mk) {
-  const key = u + '|' + mk;
+  const key = isAdmin() ? mk : u + '|' + mk;
   if (S.fc.key === key) return;
   S.fc.key = key; S.fc.on = new Set(); S.fc.rate = null;
   const t = todayStr();
@@ -849,7 +849,35 @@ function vForecast() {
         ${!past && futureSat ? `<p class="small muted" style="margin-bottom:0">Każda dodatkowa sobota po ${fmtH(S.fc.hS)} = <b>${fmtPLN(S.fc.hS * rate)}</b>. Zostało ${futureSat} sobót w tym miesiącu.</p>` : ''}
         <p class="small muted" style="margin-bottom:0">Po odjęciu zaliczek z tego miesiąca (${fmtPLN(advSum(u, mk + '-01', mk + '-31'))}): <b>${fmtPLN(done + fv - advSum(u, mk + '-01', mk + '-31'))}</b></p>
       </div>
-    </div>`;
+    </div>
+    ${isAdmin() ? fcAll(mk, fh, u, rate) : ''}`;
+}
+
+function fcAll(mk, fh, selU, selRate) {
+  const ws = workers().filter(w => w.active);
+  if (!ws.length) return '';
+  const rows = ws.map(w => {
+    const st = stats(w.id, mk + '-01', mk + '-31'), r = w.id === selU ? selRate : +w.hourly_rate;
+    const done = st.earned + st.draft, f = fh * r, adv = advSum(w.id, mk + '-01', mk + '-31');
+    return { w, r, doneH: st.h + st.hDraft, done, f, tot: done + f, adv };
+  });
+  const T = k => sum(rows, k);
+  return `<div class="section">
+    <div class="section-h"><h3>Wszyscy pracownicy · ${monthLabel(mk)}</h3></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Pracownik</th><th class="right hide-m">Stawka</th><th class="right">Już przepracowane</th><th class="right">Prognoza</th><th class="right">Razem</th><th class="right hide-m">Zaliczki</th><th class="right hide-m">Do wypłaty</th></tr></thead>
+      <tbody>${rows.map(x => `<tr class="click" data-act="fcUser" data-id="${x.w.id}" style="${x.w.id === selU ? 'background:#fbf6ef' : ''}">
+        <td><b>${esc(x.w.full_name || x.w.email)}</b></td>
+        <td class="right hide-m nowrap">${fmtPLN(x.r)}</td>
+        <td class="right nowrap">${fmtPLN(x.done)}<div class="small muted">${fmtH(x.doneH)}</div></td>
+        <td class="right nowrap">${fmtPLN(x.f)}<div class="small muted">${fmtH(fh)}</div></td>
+        <td class="right nowrap"><b>${fmtPLN(x.tot)}</b></td>
+        <td class="right hide-m nowrap">${x.adv ? fmtPLN(x.adv) : '–'}</td>
+        <td class="right hide-m nowrap">${fmtPLN(x.tot - x.adv)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>Razem (${rows.length} os.)</td><td class="hide-m"></td><td class="right nowrap">${fmtPLN(T(x => x.done))}<div class="small muted">${fmtH(T(x => x.doneH))}</div></td><td class="right nowrap">${fmtPLN(T(x => x.f))}<div class="small muted">${fmtH(fh * rows.length)}</div></td><td class="right nowrap">${fmtPLN(T(x => x.tot))}</td><td class="right hide-m nowrap">${fmtPLN(T(x => x.adv))}</td><td class="right hide-m nowrap">${fmtPLN(T(x => x.tot - x.adv))}</td></tr></tfoot>
+    </table></div>
+    <p class="small muted">Prognoza dla wszystkich liczy te same dni zaznaczone w kalendarzu powyżej i te same godziny, każdy ze swoją stawką. Kliknij wiersz, żeby pokazać tego pracownika w kalendarzu.</p>
+  </div>`;
 }
 
 /* ---------------- ZLECENIA (admin) ---------------- */
@@ -1051,6 +1079,7 @@ const ACT = {
   newEmp: () => empModal(null),
   editEmp: d => empModal(S.data.profiles.find(p => p.id === d.id)),
   csv: () => exportCsv(),
+  fcUser: d => { S.selUser = d.id; S.fc.rate = null; render(); },
   fcToggle: d => { S.fc.on.has(d.date) ? S.fc.on.delete(d.date) : S.fc.on.add(d.date); render(); },
   fcPreset: d => {
     const t = todayStr(); S.fc.on = new Set();
@@ -1063,7 +1092,7 @@ const ACT = {
   }
 };
 const CHANGE = {
-  selUser: el => { S.selUser = el.value; render(); },
+  selUser: el => { S.selUser = el.value; S.fc.rate = null; render(); },
   fcHW: el => { S.fc.hW = num(el.value); render(); },
   fcHS: el => { S.fc.hS = num(el.value); render(); },
   fcRate: el => { S.fc.rate = num(el.value); render(); },
